@@ -1,23 +1,40 @@
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 public class MainPanel extends JPanel {
     private int numberOfMines = 20;
     private int width = 10;
     private int height = 10;
+    private int unrevealedCells; //unrevealed cells with no bombs
 
     private Cell[][] cellField = new Cell[width][height];
     private JButton[][] buttons = new JButton[width][height];
 
     private Color[] colors = {Color.blue, Color.green, Color.red, Color.magenta, Color.pink, Color.cyan, Color.yellow, Color.black};
 
-    //TODO first click guarantee of not being a bomb
-    //private boolean firstClick = true;
+    private JPanel gridPanel;
+
+    private JButton topButton = new JButton();
+    private JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+
+    private boolean clickable = true;
 
     public MainPanel() {
-        setPreferredSize(new Dimension(600, 600));
-        setLayout(new GridLayout(height, width));
+        setPreferredSize(new Dimension(600, 650));
+        setLayout(new BorderLayout());
+
+        topButton.setPreferredSize(new Dimension(50, 50));
+        topPanel.add(topButton);
+        add(topPanel, BorderLayout.NORTH);
+
+        gridPanel = new JPanel(new GridLayout(height, width));
+        add(gridPanel, BorderLayout.CENTER);
+
         set();
+
+        topButton.addActionListener(e -> reset());
     }
 
     private void initiateCells() {
@@ -47,7 +64,6 @@ public class MainPanel extends JPanel {
 
     private int countAdjacentMines(int row, int col) {
         int count = 0;
-
         for (int i = row - 1; i <= row + 1; i++) {
             for (int j = col - 1; j <= col + 1; j++) {
                 if (i == row && j == col) continue;
@@ -65,13 +81,49 @@ public class MainPanel extends JPanel {
             for (int col = 0; col < width; col++) {
                 JButton button = new JButton();
                 buttons[row][col] = button;
+                Cell cell = cellField[row][col];
 
                 int finalCol = col;
                 int finalRow = row;
 
                 button.addActionListener(e -> revealCell(finalRow, finalCol));
+                button.addMouseListener(new MouseAdapter() {
+                    boolean pressed = false;
 
-                add(button);
+                    @Override
+                    public void mousePressed(MouseEvent e) {
+                        if (e.getButton() == MouseEvent.BUTTON3) {
+                            pressed = true;
+                        }
+                    }
+
+                    @Override
+                    public void mouseReleased(MouseEvent e) {
+                        if (e.getButton() == MouseEvent.BUTTON3) {
+                            if (pressed & clickable) {
+                                if (cell.isFlagged()) {
+                                    button.setText("");
+                                    cell.setFlagged(false);
+                                } else {
+                                    button.setText("\uD83D\uDEA9");
+                                    cell.setFlagged(true);
+                                }
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void mouseExited(MouseEvent e) {
+                        pressed = false;
+                    }
+
+                    @Override
+                    public void mouseEntered(MouseEvent e) {
+                        pressed = true;
+                    }
+                });
+
+                gridPanel.add(button);
             }
         }
     }
@@ -79,22 +131,29 @@ public class MainPanel extends JPanel {
     private void revealCell(int row, int col) {
         JButton button = buttons[row][col];
         Cell cell = cellField[row][col];
-        if (cell.isRevealed()) {
+        if (cell.isRevealed() || !clickable || cell.isFlagged()) {
             return;
         }
 
         if (cell.hasBomb()) {
             button.setBackground(Color.red);
             button.setText("💣");
-            
+            topButton.setText("😞");
+            clickable = false;
         } else if (cell.getAdjacentMines() == 0){
             clearOpenField(row, col);
         } else {
             button.setBackground(Color.white);
             button.setForeground(colors[cell.getAdjacentMines() - 1]);
             button.setText(String.valueOf(cell.getAdjacentMines()));
+            unrevealedCells--;
         }
 
+        if (unrevealedCells <= 0) {
+            topButton.setText("\uD83D\uDE0E");
+            JOptionPane.showMessageDialog(null, "You won!");
+            clickable = false;
+        }
         cell.setRevealed(true);
 
     }
@@ -102,6 +161,7 @@ public class MainPanel extends JPanel {
     private void clearOpenField(int row, int col) {
         if (cellField[row][col].isRevealed()) return;
         cellField[row][col].setRevealed(true);
+        unrevealedCells--;
 
         JButton button = buttons[row][col];
         button.setBackground(Color.white);
@@ -134,19 +194,15 @@ public class MainPanel extends JPanel {
         initiateCells();
         createButtons();
         printArray();
+        clickable = true;
+        topButton.setText("\uD83D\uDE00");
+        unrevealedCells = width * height - numberOfMines;
     }
 
     private void reset() {
-        clearButtons();
+        gridPanel.removeAll();
         set();
-    }
-
-    private void clearButtons() {
-        for (int row = 0; row < height; row++) {
-            for (int col = 0; col < width; col++) {
-                JButton button = buttons[row][col];
-                remove(button);
-            }
-        }
+        gridPanel.revalidate();
+        gridPanel.repaint();
     }
 }

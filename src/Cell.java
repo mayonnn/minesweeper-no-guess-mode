@@ -32,4 +32,12 @@ public class Cell {
     public void setRevealed(boolean isRevealed) {
         this.isRevealed = isRevealed;
     }
+
+    public void setFlagged(boolean flagged) {
+        isFlagged = flagged;
+    }
+
+    public boolean isFlagged() {
+        return isFlagged;
+    }
 }
